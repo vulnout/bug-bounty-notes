@@ -1,128 +1,46 @@
+# Security Vulnerability Report — Taskbear
 
-**Day 01 – Burp Suite Fundamentals & Client-Side Response Manipulation**
-
-**Category:** Web Application Security  
-**Focus:** HTTP basics, Burp Suite, authentication testing  
-**Tools:** Burp Suite, temporary email  
-**Target:** TaskBear (https://taskbear.com.au)
+**Reported by:** Abhinab
+**Date:** 02-11-2026
 
 ---
 
-### 1. HTTP Fundamentals
+## Vulnerability:  OTP Verification Bypass via Response Manipulation
 
-HTTP is a request-response protocol.  
-Client sends a request → Server processes it → Client receives a response.
+**Endpoint:** taskbear.com.au (POST method)
 
-```
-Client  →  HTTP Request  →  Server
-Client  ←  HTTP Response ←  Server
-```
 
-Everything we test in Burp (requests, responses, status codes, bodies) lives inside this model.
-
----
-
-### 2. HTTP Methods (quick reference)
-
-| Method | Purpose |
-|--------|---------|
-| GET | Retrieve data |
-| POST | Submit data (login, registration, OTP check) |
-| PUT | Full replacement of a resource |
-| PATCH | Partial update |
-| DELETE | Remove a resource |
-
-In authentication flows we mostly care about **POST**.
-
----
-
-### 3. HTTP Status Codes (the ones that matter today)
-
-| Range | Meaning | Common examples |
-|-------|---------|-----------------|
-| 2xx | Success | 200 OK, 201 Created |
-| 4xx | Client error | 401 Unauthorized, 403 Forbidden, 404 Not Found |
-| 5xx | Server error | 500, 502, 503 |
-
-During OTP testing we specifically watched for **401 → 200** changes.
-
----
-
-### 4. Burp Suite – What we actually used
-
-Burp sits between the browser and the server as an intercepting proxy.
-
-Useful today:
-- **Proxy → Intercept** – catch requests and responses live
-- **Proxy → HTTP history** – review everything that happened
-- Ability to edit a response before the browser sees it
-
-That last point is the entire technique of the day.
-
----
-
-### 5. Practical – Email OTP Verification Bypass (Response Manipulation)
-
-**Goal:** Check whether the registration flow trusts the HTTP response it receives for the OTP check, instead of a server-side verified state.
-
-**High-level steps performed:**
-
-1. Open TaskBear sign-up and request an OTP to a temporary email.
-2. Submit a deliberately wrong OTP with Burp intercept on.
-3. Observe the real server response: `HTTP/2 401 Unauthorized` + body saying the OTP is invalid/expired.
-4. Intercept the same response again, change status to `200 OK` and replace the body with a success-shaped payload (contact + verifiedAt).
+### Steps to Reproduce
+1. Navigate to https://taskbear.com.au/auth/sign-up?redirect=%2F and initiate email verification.
+2. Enter an invalid OTP and intercept the verification response using Burp Suite.
+3. Observe the original 401 Unauthorized response indicating an invalid or expired OTP.
+4. Modify the response status code to 200 OK and replace its response body with the body obtained from a successful verification/account creation response.
 5. Forward the modified response to the browser.
-6. Continue the registration flow (mobile step was skippable).
-7. Account was created successfully even though the correct OTP was never entered.
+6. Observe that the application accepts the manipulated response and allows registration to proceed.
 
-**Important clarification (kept deliberate):**  
-Editing the response only changes what the *browser* sees. It does **not** prove the server’s own verification record was updated. The finding shows client-side trust in the response. Whether the backend independently re-checks verification state at account-creation time was not tested in this exercise.
+### Impact
+An attacker may be able to bypass the frontend email verification flow without supplying a valid OTP. If subsequent backend operations do not independently enforce email verification, this could allow account registration using unverified email addresses.
 
----
+### PoC
+ 1. Registration
+ <img width="755" height="701" alt="image" src="https://github.com/user-attachments/assets/17a6b7a1-791c-4091-ae82-be56a3761769" />
+ 2.Successful account creation using valid OTP
 
-### 6. Key Takeaways
+  <img width="620" height="451" alt="image" src="https://github.com/user-attachments/assets/deac672d-696d-445f-a78a-750c7742cda9" />
 
-- The frontend treated a forged 200 + success body as proof of verification.
-- Subsequent registration steps proceeded as if the email was verified.
-- Real impact depends on whether the account-creation endpoint itself enforces a server-side “OTP verified” flag. That check was outside the scope of Day 1.
+3. Enter Incorrect OTP
+   <img width="960" height="709" alt="Untitled" src="https://github.com/user-attachments/assets/34e4434c-aef5-4db6-a760-efa30d2a42fc" />
+   <img width="635" height="447" alt="image" src="https://github.com/user-attachments/assets/95228346-0bb3-4b5b-b52a-33b8c99b26f5" />
+4. Use response body of successful registration and change status code to 200 OK
+ <img width="624" height="445" alt="image" src="https://github.com/user-attachments/assets/ce89cc5a-a738-4d8d-bdcc-ef489a8d6403" />
+5. OTP bypass
+  <img width="1284" height="809" alt="image" src="https://github.com/user-attachments/assets/265b6a41-b007-45f1-9c79-46457ce195b4" />
 
----
 
-### 7. Security Impact (observed)
 
-- An attacker who can intercept their own traffic can make the UI accept an unverified email.
-- This weakens the guarantee that a registered email is controlled by the account owner.
-- It is **not** a remote attack against other users; the attacker must control the responses to their own requests.
 
----
-
-### 8. Recommended Mitigations
-
-1. OTP verification decision must live only on the server.
-2. Account-creation endpoint must re-check a server-side verified flag (session-bound).
-3. Never treat a client-visible status code or response body as the source of truth.
-4. OTP should be single-use and rate-limited.
-5. Re-test the final registration request in isolation to confirm server-side enforcement.
-
----
-
-### 9. Learning Outcomes
-
-After Day 1 you should be able to:
-
-- Explain the basic HTTP request-response model
-- Recognise the main HTTP methods and status-code families
-- Configure Burp as an intercepting proxy
-- Intercept and edit both requests and responses
-- Test whether an OTP / verification step is enforced only client-side
-- Distinguish “UI accepted the forged response” from “server state was actually changed”
-
----
-
-### 10. Conclusion
-
-Day 1 introduced the core toolkit (HTTP + Burp) and demonstrated a classic client-side trust issue: the registration UI accepted a manipulated success response for an incorrect OTP and allowed the flow to complete. The exercise reinforces the fundamental rule — authentication and verification decisions belong on the server, not in the browser.
-
----
-
-**End of Day 01 notes**
+### Remediation
+1. Enforce OTP validation exclusively on the server.
+2. Maintain verification state server-side.
+3. Never rely on client-side responses to establish email verification.
+4. Validate email verification status before allowing registration to complete.
