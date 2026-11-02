@@ -46,8 +46,8 @@ An attacker may be able to bypass the frontend email verification flow without s
 **4. Modify the response to simulate successful verification**
 
 <p align="center">
-  <img width="960" height="540" alt="Untitled" src="https://github.com/user-attachments/assets/e494bb03-7cee-495c-ac38-613ca4fe7bb6" />
- />
+  <img width="626" height="448" alt="Untitled" src="https://github.com/user-attachments/assets/90937253-36e2-43f5-8c3c-257c723496b0" />
+ 
 </p>
 
 **5. OTP bypass**
