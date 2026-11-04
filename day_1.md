@@ -1,15 +1,5 @@
-# Security Vulnerability Report — Taskbear
+# OTP Verification Bypass via Response Manipulation
 
-**Reported by:** Abhinab  
-**Date:** 02-11-2026
-
----
-
-## Vulnerability
-
-**OTP Verification Bypass via Response Manipulation**
-
-**Endpoint:** `taskbear.com.au` (POST method)
 
 ---
 
